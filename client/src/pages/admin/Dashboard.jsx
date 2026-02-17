@@ -1,12 +1,15 @@
 import { ChartLineIcon, CircleDollarSignIcon, PlayCircleIcon, StarIcon, UsersIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { dummyDashboardData } from '../../assets/assets'
 import Loading from '../../components/Loading'
 import Title from '../../components/admin/Title'
 import BlurCircle from '../../components/BlurCircle'
 import dateFormat from '../../lib/dateFormat'
+import { useAppContext } from '../../context/AppContext'
+import toast from 'react-hot-toast'
 
 const Dashboard = () => {
+  const { axios, getToken, user, image_base_url } = useAppContext()
+
   const currency = import.meta.env.VITE_CURRENCY || 'USD'
 
   const [dashboardData, setDashboardData] = useState({
@@ -25,13 +28,28 @@ const Dashboard = () => {
   ]
 
   const fetchDashboardData = async () => {
-    setDashboardData(dummyDashboardData)
-    setLoading(false)
+    try {
+      const { data } = await axios.get('/api/admin/dashboard', {
+        headers: { Authorization: `Bearer ${await getToken()}` }
+      })
+
+      if (data.success) {
+        setDashboardData(data.dashboardData)
+        setLoading(false)
+      } else {
+        toast.error(data.message || 'Failed to fetch dashboard data')
+      }
+    } catch (error) {
+      console.error(error)
+      toast.error('Failed to fetch dashboard data')
+    }
   }
 
   useEffect(() => {
-    fetchDashboardData()
-  }, [])
+    if (user) {
+      fetchDashboardData()
+    }
+  }, [user])
 
   return !loading ? (
     <>
@@ -63,7 +81,7 @@ const Dashboard = () => {
             className="w-55 rounded-lg h-full overflow-hidden pb-3 bg-primary/10 border border-primary/20 hover:-translate-y-1 transition duration-300"
             key={show._id}
           >
-            <img src={show.movie.poster_path} alt="poster" className="w-full h-full object-cover" />
+            <img src={image_base_url + show.movie.poster_path} alt="poster" className="w-full h-full object-cover" />
             <p className="text-sm font-medium p-2 truncate">{show.movie.title}</p>
             <div className="flex justify-between px-2 items-center">
               <p className="text-xl font-semibold">
