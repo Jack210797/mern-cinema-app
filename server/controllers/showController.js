@@ -100,30 +100,30 @@ export const getShows = async (req, res) => {
 }
 
 //API to get a single show from the database
-const getShow = async (req, res) => {
+export const getShow = async (req, res) => {
   try {
     const { movieId } = req.params
 
-    //Get all upcoming shows for the movie
-    const shows = await Show.find({ movie: movieId, showDateTime: { $gte: new Date() } }).sort({ showDateTime: 1 })
-
     const movie = await Movie.findById(movieId)
-    const dateTime = {}
+    if (!movie) {
+      return res.status(404).json({ success: false, message: 'Movie not found' })
+    }
 
+    const shows = await Show.find({
+      movie: movieId,
+      showDateTime: { $gte: new Date() }
+    }).sort({ showDateTime: 1 })
+
+    const dateTime = {}
     shows.forEach((show) => {
       const date = show.showDateTime.toISOString().split('T')[0]
-      if (!dateTime[date]) {
-        dateTime[date] = []
-      }
-      dateTime[date].push({
-        time: show.showDateTime,
-        showId: show._id
-      })
+      if (!dateTime[date]) dateTime[date] = []
+      dateTime[date].push({ time: show.showDateTime, showId: show._id })
     })
 
-    res.json({ success: true, show: { movie, dateTime } })
+    return res.json({ success: true, show: { movie, dateTime } })
   } catch (error) {
     console.log(error)
-    res.json({ success: false, message: error.message })
+    return res.json({ success: false, message: error.message })
   }
 }

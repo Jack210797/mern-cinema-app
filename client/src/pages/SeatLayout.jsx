@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { assets, dummyDateTimeData, dummyShowsData } from '../assets/assets'
+import { assets } from '../assets/assets'
 import Loading from '../components/Loading'
 import { ArrowRightIcon, ClockIcon } from 'lucide-react'
 import isoTimeFormat from '../lib/soTimeFormat'
 import BlurCircle from '../components/BlurCircle'
 import toast from 'react-hot-toast'
+import { useAppContext } from '../context/AppContext'
 
 const SeatLayouts = () => {
   const groupRows = [
@@ -20,16 +21,21 @@ const SeatLayouts = () => {
   const [selectedSeats, setSelectedSeats] = useState([])
   const [selectedTime, setSelectedTime] = useState(null)
   const [show, setShow] = useState(null)
+  const [occupiedSeats, setOccupiedSeats] = useState([])
 
   const navigate = useNavigate()
 
+  const { axios, getToken, user } = useAppContext()
+
   const getShow = async () => {
-    const foundShow = dummyShowsData.find((show) => show._id === id)
-    if (foundShow) {
-      setShow({
-        movie: foundShow,
-        dateTime: dummyDateTimeData
-      })
+    try {
+      const { data } = await axios.get(`/api/show/${id}`)
+
+      if (data.success) {
+        setShow(data.show)
+      }
+    } catch (error) {
+      console.log(error)
     }
   }
 
@@ -40,6 +46,9 @@ const SeatLayouts = () => {
 
     if (!selectedSeats.includes(seatId) && selectedSeats.length > 4) {
       return toast('You can select maximum 5 seats', { icon: '⚠️' })
+    }
+    if (occupiedSeats.includes(seatId)) {
+      return toast('This seat is already booked', { icon: '⚠️' })
     }
     setSelectedSeats((prev) => (prev.includes(seatId) ? prev.filter((seat) => seat !== seatId) : [...prev, seatId]))
   }
@@ -53,9 +62,10 @@ const SeatLayouts = () => {
             <button
               key={seatId}
               onClick={() => handleSeatClick(seatId)}
-              className={`h-8 w-8 rounded border border-primary/60 cursor-pointer ${
-                selectedSeats.includes(seatId) && 'bg-primary text-white'
-              }`}
+              className={`h-8 w-8 rounded border border-primary/60 cursor-pointer 
+                
+                ${selectedSeats.includes(seatId) && 'bg-primary text-white'} 
+                ${occupiedSeats.includes(seatId) && 'opacity-50'}`}
             >
               {seatId}
             </button>
@@ -65,11 +75,60 @@ const SeatLayouts = () => {
     </div>
   )
 
+  const getOccupiedSeats = async () => {
+    try {
+      const { data } = await axios.get(`/api/booking/seats/${selectedTime.showId}`)
+      if (data.success) {
+        setOccupiedSeats(data.occupiedSeats)
+      } else {
+        toast.error(data.message)
+      }
+    } catch (error) {
+      console.log(error)
+    }
+  }
+
+  const bookTickets = async () => {
+    try {
+      if (!user) {
+        return toast.error('Please login to book tickets', { icon: '⚠️' })
+      }
+
+      if (!selectedTime || selectedSeats.length === 0) {
+        return toast.error('Please select time and seats', { icon: '⚠️' })
+      }
+
+      const { data } = await axios.post(
+        '/api/booking/create',
+        { showId: selectedTime.showId, selectedSeats },
+        {
+          headers: {
+            Authorization: `Bearer ${await getToken()}`
+          }
+        }
+      )
+
+      if (data.success) {
+        window.location.href = data.url
+      } else {
+        toast.error(data.message)
+      }
+    } catch (error) {
+      toast.error(error.message)
+    }
+  }
+
   useEffect(() => {
     if (id && date) {
       getShow()
     }
   }, [id, date])
+
+  useEffect(() => {
+    if (selectedTime) {
+      getOccupiedSeats()
+    }
+  }, [selectedTime])
 
   return show ? (
     <div className=" flex flex-col md:flex-row px-6 pt-40 md:px-16 lg:px-40 md:pt-50">
@@ -111,7 +170,7 @@ const SeatLayouts = () => {
         </div>
 
         <button
-          onClick={() => navigate('/my-bookings')}
+          onClick={bookTickets}
           className="flex items-center gap-1 mt-20 px-10 py-3 text-sm bg-primary hover:bg-primary-dull transition   rounded-full font-medium cursor-pointer active:scale-95 "
         >
           Proceed to checkout

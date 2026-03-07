@@ -1,27 +1,56 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { dummyDateTimeData, dummyShowsData } from '../assets/assets'
 import BlurCircle from '../components/BlurCircle'
 import { ArrowRight, HeartIcon, PlayCircleIcon, StarIcon } from 'lucide-react'
 import timeFormat from '../lib/timeFormat'
 import DateSelect from '../components/DateSelect'
 import MovieCard from '../components/MovieCard'
 import Loading from '../components/Loading'
+import { useAppContext } from '../context/AppContext'
+import toast from 'react-hot-toast'
 
 const MovieDetails = () => {
   const navigate = useNavigate()
   const { id } = useParams()
   const [show, setShow] = useState(null)
 
-  const getShow = async () => {
-    const foundShow = dummyShowsData.find((show) => show._id === id)
+  const { shows, axios, getToken, user, fetchFavoriteMovies, favoriteMovies, image_base_url } = useAppContext()
 
-    if (foundShow) {
-      setShow({
-        movie: foundShow,
-        dateTime: dummyDateTimeData
-      })
+  const getShow = async () => {
+    try {
+      const { data } = await axios.get(`/api/show/${id}`)
+
+      if (data.success) {
+        setShow(data.show)
+      }
+    } catch (error) {
+      console.log(error)
+    }
+  }
+
+  const handleFavorite = async () => {
+    try {
+      if (!user) {
+        return toast.error('Please sign in to add to favorites')
+      }
+
+      const { data } = await axios.post(
+        '/api/user/update-favorite',
+        { movieId: id },
+        {
+          headers: {
+            Authorization: `Bearer ${await getToken()}`
+          }
+        }
+      )
+
+      if (data.success) {
+        await fetchFavoriteMovies()
+        toast.success(data.message)
+      }
+    } catch (error) {
+      console.log(error)
     }
   }
 
@@ -33,7 +62,7 @@ const MovieDetails = () => {
     <div className="px-6 md:px-16 lg:px-40 pt-30 md:pt-50">
       <div className="flex flex-col md:flex-row gap-8 max-w-6xl mx-auto">
         <img
-          src={show.movie.poster_path}
+          src={image_base_url + show.movie.poster_path}
           alt="poster"
           className=" object-cover rounded-xl h-104 max-md:mx-auto max-w-70"
         />
@@ -66,19 +95,25 @@ const MovieDetails = () => {
             >
               Buy Ticket
             </a>
-            <button className="bg-gray-700 p-2.5 rounded-full cursor-pointer hover:bg-gray-800 transition-all duration-200 active:scale-95">
-              <HeartIcon className={`w-5 h-5`} />
+            <button
+              onClick={handleFavorite}
+              className="bg-gray-700 p-2.5 rounded-full cursor-pointer hover:bg-gray-800 transition-all duration-200 active:scale-95"
+            >
+              <HeartIcon
+                className={`w-5 h-5 ${favoriteMovies.find((movie) => movie._id === id) ? 'fill-primary text-primary' : ''}`}
+              />
             </button>
           </div>
         </div>
       </div>
+
       <p className="mt-20 text-lg font-medium text-white">Your Favorite Cast</p>
       <div className="no-scrollbar overflow-x-auto mt-8 pb-4">
         <div className="flex items-center gap-6 w-max px-4">
           {show.movie.casts.slice(0, 12).map((cast) => (
             <div key={cast.name} className="flex flex-col items-center text-center">
               <img
-                src={cast.profile_path}
+                src={image_base_url + cast.profile_path}
                 alt={cast.name}
                 className="h-20 md:h-20 aspect-square rounded-full object-cover"
               />
@@ -103,7 +138,7 @@ const MovieDetails = () => {
         </div>
 
         <div className=" gap-7 mt-8 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
-          {dummyShowsData.slice(0, 4).map((show) => (
+          {shows.slice(0, 4).map((show) => (
             <MovieCard key={show._id} movie={show} />
           ))}
         </div>

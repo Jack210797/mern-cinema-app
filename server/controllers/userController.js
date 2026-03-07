@@ -25,19 +25,17 @@ export const updateFavoriteMovies = async (req, res) => {
 
     const user = await clerkClient.users.getUser(userId)
 
-    if (!user.privateMetadata.favorites) {
-      user.privateMetadata.favorites = []
-    }
+    const currentFavorites = user.privateMetadata.favorites || []
 
-    if (!user.privateMetadata.favorites.includes(movieId)) {
-      user.privateMetadata.favorites.push(movieId)
+    if (!currentFavorites.includes(movieId)) {
+      currentFavorites.push(movieId)
     } else {
-      user.privateMetadata.favorites.filter((item) => item !== movieId)
+      user.privateMetadata.favorites = currentFavorites.filter((item) => item !== movieId)
     }
 
     await clerkClient.users.updateUserMetadata(userId, { privateMetadata: user.privateMetadata })
 
-    res.json({ success: true, message: 'Favorite movies updated successfully' })
+    res.json({ success: true, message: 'Favorite movies updated' })
   } catch (error) {
     console.log(error)
     res.json({ success: false, message: error.message })
